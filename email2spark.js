@@ -51,7 +51,6 @@ function leaveRoom(roomId)
       sparkClient.listMemberships(roomId,function(err,memberships){
         if (!err)
         {
-          console.log(JSON.stringify(memberships,null,3))
           var membershipId = ""
            for (i=0;i<memberships.items.length;i++)
            {
@@ -120,7 +119,6 @@ app.post('/mailgun', function(req, res){
   res.end('ok');
 
   var emailBody = req.body
-  console.log(JSON.stringify(emailBody,null,2))
   var owner  = emailBody.sender
   var j = 0
   var participants=[]
@@ -134,11 +132,7 @@ app.post('/mailgun', function(req, res){
   var messageUrl = emailBody['message-url']
   var domain =lower_owner.split('@')
 
-  if (domain[1] == 'cisco.com')
-  {
-    console.log("Cisco catch all: "+lower_owner)
-  }
-  else
+  if (domain[1] != 'cisco.com')
   {
     console.log("Not autorized!!! "+ owner)
     var text ="Sorry you aren't authorized to use this service.\n\nRegards,\nEmail2Spark Team"
@@ -151,7 +145,8 @@ app.post('/mailgun', function(req, res){
     };
 
     mailgun.messages().send(data, function (error, body) {
-        console.log(body);
+        if (error)
+           console.error(error)
     });
     return
   }
@@ -163,7 +158,6 @@ app.post('/mailgun', function(req, res){
   if (To) {
     for (var i =0; i< To.length; i++)
     {
-      console.log (To[i].address)
       var ta = To[i].address
       if (ta != bot_email)
       {
@@ -182,7 +176,8 @@ app.post('/mailgun', function(req, res){
         };
 
         mailgun.messages().send(data, function (error, body) {
-            console.log(body);
+            if (error)
+              console.error(error);
         });
         return;
       }
@@ -194,7 +189,6 @@ app.post('/mailgun', function(req, res){
   if(Cc) {
     for (var i =0; i< Cc.length; i++)
     {
-      console.log (Cc[i].address)
       var ca =  Cc[i].address
       if (ca != bot_email)
       {
@@ -213,7 +207,8 @@ app.post('/mailgun', function(req, res){
         };
 
         mailgun.messages().send(data, function (error, body) {
-            console.log(body);
+          if (error)
+            console.error(error);
         });
         return;
         }
@@ -238,7 +233,8 @@ app.post('/mailgun', function(req, res){
             };
 
             mailgun.messages().send(data, function (error, body) {
-                console.log(body);
+              if (error)
+                console.error(error);
             });
             return postMessage(room.id,emailBody.From+' wrote:\n\n'+emailText.substr(0,6000))
                   .then(function(message){
@@ -260,7 +256,8 @@ app.post('/mailgun', function(req, res){
       };
 
       mailgun.messages().send(data, function (error, body) {
-          console.log(body);
+        if (error)
+          console.error(error);
       });
     })
 });
