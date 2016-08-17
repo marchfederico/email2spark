@@ -17,6 +17,16 @@ var sparkClient = new CiscoSparkClient(botAccessToken)
 var prefixesToStrip = ['RE','FW']
 
 //  Helper functions
+
+function decodeBase64(base64) {
+    // Add removed at end '='
+    base64 += Array(5 - base64.length % 4).join('=');
+    base64 = base64
+        .replace(/\-/g, '+') // Convert '-' to '+'
+        .replace(/\_/g, '/'); // Convert '_' to '/'
+    return (new Buffer(base64, 'base64')).toString();
+}
+
 function stripPrefixes(prefixesToStrip, subject)
 {
     var a = subject.split(' ')
@@ -223,7 +233,10 @@ app.post('/mailgun', function(req, res){
             return addPersonToRoom(room.id,email)
       },{concurrency:1})
       .then(function(emails){
-            var text ='Hello email users,\n\nThis discussion has been moved to Cisco Spark by '+ owner + '\nClick the link below to enter the room.\n\nhttps://web.ciscospark.com/launch/rooms/'+room.id+'\n\nRegards,\nRegards,\nEmail2Spark Team'
+            var roomUUID_Regex = /ciscospark:\/\/.+\/.+\/(.+)/
+            var roomUri = decodeBase64(room.id)
+            var roomUUID = roomUri.match(roomUUID_Regex)
+            var text ='Hello email users,\n\nThis discussion has been moved to Cisco Spark by '+ owner + '\nClick the link below to enter the room.\n\nhttps://web.ciscospark.com/launch/rooms/'+roomUUID[1]+'\n\nRegards,\nRegards,\nEmail2Spark Team'
             var emailText = emailBody['body-plain']
             var data = {
                 from: 'no-reply@'+emaildomain,
