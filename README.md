@@ -1,6 +1,6 @@
 # email2spark
 
-A simple program that will move and email thread to a Cisco Spark room using www.mailgun.com
+A simple program that will move an email thread to a Cisco Spark room using www.mailgun.com
 
 ## Enviroment variables
 
