@@ -6,7 +6,8 @@ var CiscoSparkClient = require('node-ciscospark')
 var express = require('express');
 var bodyParser = require("body-parser")
 var addrs = require("email-addresses")
-
+var multer = require('multer')
+var upload = multer()
 var app = express();
 var port = process.env.PORT
 var bot_email = process.env.BOT_EMAIL
@@ -124,11 +125,16 @@ app.get('/ping', function (req, res) {
 })
 
 // main route for mailgun webhook
-app.post('/mailgun', function(req, res){
+app.post('/mailgun', upload.any(),function(req, res, next){
   // we can respond back to the webhook right away.
   res.end('ok');
-
   var emailBody = req.body
+  if (emailBody == null || emailBody.To == null || emailBody.From == null || emailBody.subject == null)
+   {
+     console.error("Invalid posted parameters")
+     return
+   }
+  console.log(JSON.stringify(emailBody))
   var owner  = emailBody.sender
   var j = 0
   var participants=[]
