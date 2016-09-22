@@ -174,7 +174,7 @@ app.post('/mailgun', upload.any(),function(req, res, next){
   if (To) {
     for (var i =0; i< To.length; i++)
     {
-      var ta = To[i].address
+      var ta = To[i].address.toLowerCase()
       if (ta != bot_email)
       {
         if (participants.indexOf(ta) < 0)
@@ -205,7 +205,7 @@ app.post('/mailgun', upload.any(),function(req, res, next){
   if(Cc) {
     for (var i =0; i< Cc.length; i++)
     {
-      var ca =  Cc[i].address
+      var ca =  Cc[i].address.toLowerCase()
       if (ca != bot_email)
       {
         if (participants.indexOf(ca) < 0)
