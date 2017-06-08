@@ -2,7 +2,7 @@ var api_key = process.env.MAILGUN_API_KEY;
 var emaildomain = process.env.DOMAIN;
 var mailgun = require('mailgun-js')({apiKey: api_key, domain: emaildomain});
 var Promise = require("bluebird");
-var CiscoSparkClient = require('node-ciscospark')
+var CiscoSparkClient = require('node-sparkclient')
 var express = require('express');
 var bodyParser = require("body-parser")
 var addrs = require("email-addresses")
@@ -14,6 +14,7 @@ var bot_email = process.env.BOT_EMAIL
 var bot_id = process.env.BOT_ID
 var botAccessToken = process.env.BOT_ACCESS_TOKEN
 var sparkClient = new CiscoSparkClient(botAccessToken)
+var pmx = require('pmx');
 
 var prefixesToStrip = ['RE','FW']
 
@@ -101,7 +102,8 @@ function addPersonToRoom(roomId,personEmail) {
 
 function postMessage(roomId,message) {
   return new Promise(function (fulfill, reject){
-      sparkClient.createMessage(roomId,message,function(err,message){
+       var sanitizedMessage = '>'+message.replace(/\n/g,"<br>")
+      sparkClient.createMessage(roomId,sanitizedMessage,{markdown:true},function(err,message){
         if (err) {
             reject(err)
         }
@@ -134,7 +136,6 @@ app.post('/mailgun', upload.any(),function(req, res, next){
      console.error("Invalid posted parameters")
      return
    }
-  console.log(JSON.stringify(emailBody))
   var owner  = emailBody.sender
   var j = 0
   var participants=[]
@@ -148,25 +149,6 @@ app.post('/mailgun', upload.any(),function(req, res, next){
   var messageUrl = emailBody['message-url']
   var domain =lower_owner.split('@')
 
-  if (domain[1] != 'cisco.com')
-  {
-    console.log("Not autorized!!! "+ owner)
-    var text ="Sorry you aren't authorized to use this service.\n\nRegards,\nEmail2Spark Team"
-    var emailText = emailBody['body-plain']
-    var data = {
-        from: 'no-reply@'+emaildomain,
-        to: owner,
-        subject: Subject,
-        text: text
-    };
-
-    mailgun.messages().send(data, function (error, body) {
-        if (error)
-           console.error(error)
-    });
-    return
-  }
-
   // Add Sender to the list people to add to the spark room
   participants[j++]=owner
 
@@ -175,6 +157,7 @@ app.post('/mailgun', upload.any(),function(req, res, next){
     for (var i =0; i< To.length; i++)
     {
       var ta = To[i].address.toLowerCase()
+      
       if (ta != bot_email)
       {
         if (participants.indexOf(ta) < 0)
@@ -213,7 +196,7 @@ app.post('/mailgun', upload.any(),function(req, res, next){
       }
       else
       {
-        var text ="Hi There,\n\n We couldn't create a Spark room for you because "+bot_email+" was found to be in the TO field.  Please try again by replying all to the original message and adding "+bot_email+" only to the BCC field.\n\nRegards,\nEmail2Spark Team"
+        var text ="Hi There,\n\n We couldn't create a Spark room for you because "+bot_email+" was found to be in the CC field.  Please try again by replying all to the original message and adding "+bot_email+" only to the BCC field.\n\nRegards,\nEmail2Spark Team"
         var emailText = emailBody['body-plain']
         var data = {
             from: 'no-reply@'+emaildomain,
@@ -236,13 +219,25 @@ app.post('/mailgun', upload.any(),function(req, res, next){
       console.log("New room created: "+Subject)
       Promise.map(participants, function (email) {
              console.log("Adding: "+email)
-            return addPersonToRoom(room.id,email)
+
+              return new Promise(function (fulfill, reject){            
+                addPersonToRoom(room.id,email)
+                .then(function(success){
+                  fulfill(email)
+                })
+                .catch(function(ex){
+                  pmx.emit('error:adding participant', {
+                     error: ex
+                  });
+                  fulfill("")
+                })
+              })
       },{concurrency:1})
       .then(function(emails){
             var roomUUID_Regex = /ciscospark:\/\/.+\/.+\/(.+)/
             var roomUri = decodeBase64(room.id)
             var roomUUID = roomUri.match(roomUUID_Regex)
-            var text ='Hello email users,\n\nThis discussion has been moved to Cisco Spark by '+ owner + '\nClick the link below to enter the room.\n\nhttps://web.ciscospark.com/launch/rooms/'+roomUUID[1]+'\n\nRegards,\nRegards,\nEmail2Spark Team'
+            var text ='Hello email users,\n\nThis discussion has been moved to Cisco Spark by '+ owner + '\nClick the link below to enter the room.\n\nhttps://web.ciscospark.com/launch/rooms/'+roomUUID[1]+'\n\nIf you have an email thread that you want to move to Cisco Spark, just reply all and BCC: move@email2spark.com\n\nRegards,\nEmail2Spark Team'
             var emailText = emailBody['body-plain']
             var data = {
                 from: 'no-reply@'+emaildomain,
@@ -255,13 +250,16 @@ app.post('/mailgun', upload.any(),function(req, res, next){
               if (error)
                 console.error(error);
             });
-            return postMessage(room.id,emailBody.From+' wrote:\n\n'+emailText.substr(0,6000))
+            return postMessage(room.id,emailBody.From+' wrote:\n\n'+emailText.substr(0,4000))
                   .then(function(message){
                     return leaveRoom(room.id)
                   })
       })
       .then(function(membership){
         console.log("Left room")
+      })
+      .catch(function(ex){
+        console.log("Exception: "+ex)
       })
     })
     .catch(function(ex){
